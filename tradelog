@@ -1,0 +1,98 @@
+#!/bin/sh
+
+export POSIXLY_CORRECT=yes
+export LC_NUMERIC=en_US.UTF-8
+
+print_help(){
+  echo "Usage:  tradelog [-h|--help]"
+  echo "        tradelog [FILTER] [COMMAND] [LOG [LOG2 [...]]"
+  echo "Commands: list-tick"
+  echo "          profit"
+  echo "          pos"
+  echo "          last-price"
+  echo "          hist-ord"
+  echo "          graph-pos"
+  echo "Filters:  -a DATETIME"
+  echo "          -b DATETIME"
+  echo "          -t TICKER"
+  echo "          -w WIDTH"
+}
+
+COMMAND=""
+WIDTH=""
+TICKER=""
+DATETIME_A="0000-00-00 00:00:00"
+DATETIME_B="9999-99-99 99:99:99"
+LOGFILES=""
+LOGFILES_GZ=""
+INPUT=""
+FILTER_INPUT=""
+OUTPUT=""
+
+
+while [ "$#" -gt 0 ]
+do
+  case "$1" in
+  -h | --help)
+    print_help
+    exit 0
+    ;;
+  list-tick | profit | pos | last-price | hist-ord | graph-pos)
+    COMMAND="$1"
+    shift
+    ;;
+  -w)
+    if [ "$WIDTH" == "" ];then
+      WIDTH="$2"
+      shift
+      shift
+    else
+      exit 1
+    fi
+    ;;
+  -a)
+    DATETIME_A="$2"
+    shift
+    shift
+    ;;
+  -b)
+    DATETIME_B="$2"
+    shift
+    shift
+    ;;
+  -t)
+    TICKER="$2|$ICKER"
+    shift
+    shift
+    ;;
+  *.gz)
+    LOGFILES_GZ="$1 $LOGFILES_GZ"
+    shift
+    ;;
+  *)
+    LOGFILES="$1 $LOGFILES"
+    shift
+    ;;
+  esac
+done
+
+INPUT="gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort"
+FILTER_INPUT="eval $INPUT | awk -F ';' 'if(\$1 > $DATETIME_A && \$1 < $DATETIME_B) {print \$0}' | grep '^.*;\($TICKER\)'"
+
+case "$COMMAND" in
+  list-tick)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk ';' '{print $2}')
+    ;;
+  profit)
+    ;;
+  pos)
+    ;;
+  last-price)
+    ;;
+  hist-ord)
+    ;;
+  graph-pos)
+    ;;
+esac
+
+echo "$out"
