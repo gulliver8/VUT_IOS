@@ -65,7 +65,7 @@ do
     shift
     ;;
   -t)
-    TICKER="$2|$ICKER"
+    TICKER="$2|$TICKER"
     shift
     shift
     ;;
@@ -88,9 +88,12 @@ if [ "$LOGFILES" != "" ]; then
 else
   INPUT=$(cat)
 fi
-DATE_FILTER= "awk -F -v time_a="$DATETIME_A" -v time_b="$DATETIME_B" ';' '{if($1 > time_a && $1 < time_b) {print $0}}'"
-FILTER_INPUT=$(echo "$INPUT" | eval $DATE_FILTER | grep '^.*;\($TICKER\)')
 
+FILTER_INPUT=$(echo "$INPUT" | awk -v time_a="$DATETIME_A" -v time_b="$DATETIME_B" -F ';' '{if ($1 > time_a && $1 < time_b) {print $0}}')
+if [ "$TICKER" != "" ];then
+  FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" 'BEGIN = split(tck, tick)}
+  {for(i=1; i<=x;i++) if(tick[i] == $2) {print $0}}')
+fi
 case "$COMMAND" in
   list-tick)
   OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
