@@ -76,8 +76,15 @@ do
   esac
 done
 
-INPUT="gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort"
-FILTER_INPUT="eval $INPUT | awk -F ';' 'if(\$1 > $DATETIME_A && \$1 < $DATETIME_B) {print \$0}' | grep '^.*;\($TICKER\)'"
+if [ "$LOGFILES_GZ" != "" ];then
+  INPUT="gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort"
+fi
+if [ "$LOGFILES" != "" ]; then
+  INPUT="cat $LOGFILES -"
+else
+  INPUT=""
+fi
+OUTPUT="$INPUT"
 
 case "$COMMAND" in
   list-tick)
@@ -95,4 +102,4 @@ case "$COMMAND" in
     ;;
 esac
 
-echo "$out"
+echo "$OUTPUT"
