@@ -4,14 +4,16 @@ export POSIXLY_CORRECT=yes
 export LC_NUMERIC=en_US.UTF-8
 
 print_help(){
-  echo "Usage:  tradelog [-h|--help]"
-  echo "        tradelog [FILTER] [COMMAND] [LOG [LOG2 [...]]"
+  echo "Usage:    tradelog [-h|--help]"
+  echo "          tradelog [FILTER] [COMMAND] [LOG [LOG2 [...]]"
+  echo "                   "
   echo "Commands: list-tick"
   echo "          profit"
   echo "          pos"
   echo "          last-price"
   echo "          hist-ord"
   echo "          graph-pos"
+  echo "                     "
   echo "Filters:  -a DATETIME"
   echo "          -b DATETIME"
   echo "          -t TICKER"
@@ -27,6 +29,8 @@ LOGFILES=""
 LOGFILES_GZ=""
 INPUT=""
 FILTER_INPUT=""
+DATE_FILTER=""
+TICKER_FILTER=""
 OUTPUT=""
 
 
@@ -69,7 +73,7 @@ do
     LOGFILES_GZ="$1 $LOGFILES_GZ"
     shift
     ;;
-  *)
+  *.log)
     LOGFILES="$1 $LOGFILES"
     shift
     ;;
@@ -77,18 +81,19 @@ do
 done
 
 if [ "$LOGFILES_GZ" != "" ];then
-  INPUT="gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort"
+  INPUT="$(gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort)"
 fi
 if [ "$LOGFILES" != "" ]; then
-  INPUT="cat $LOGFILES -"
+  INPUT=$(cat $LOGFILES)
 else
-  INPUT=""
+  INPUT=$(cat)
 fi
-OUTPUT="$INPUT"
+DATE_FILTER= "awk -F -v time_a="$DATETIME_A" -v time_b="$DATETIME_B" ';' '{if($1 > time_a && $1 < time_b) {print $0}}'"
+FILTER_INPUT=$(echo "$INPUT" | eval $DATE_FILTER | grep '^.*;\($TICKER\)')
 
 case "$COMMAND" in
   list-tick)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk ';' '{print $2}')
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
     ;;
   profit)
     ;;
@@ -99,6 +104,9 @@ case "$COMMAND" in
   hist-ord)
     ;;
   graph-pos)
+    ;;
+  *)
+  OUTPUT="$FILTER_INPUT"
     ;;
 esac
 
