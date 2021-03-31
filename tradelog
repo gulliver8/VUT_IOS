@@ -29,10 +29,8 @@ LOGFILES=""
 LOGFILES_GZ=""
 INPUT=""
 FILTER_INPUT=""
-DATE_FILTER=""
-TICKER_FILTER=""
 OUTPUT=""
-
+TICKER_LIST=""
 
 while [ "$#" -gt 0 ]
 do
@@ -82,14 +80,14 @@ done
 
 if [ "$LOGFILES_GZ" != "" ];then
   INPUT="$(gzip -d -c $LOGFILES_GZ | cat $LOGFILES - | sort)"
-fi
-if [ "$LOGFILES" != "" ]; then
-  INPUT=$(cat $LOGFILES)
 else
-  INPUT=$(cat)
+  if [ "$LOGFILES" != "" ]; then
+    INPUT=$(cat $LOGFILES)
+  else
+    INPUT=$(cat)
+  fi
 fi
-
-FILTER_INPUT=$(echo "$INPUT" | awk -v time_a="$DATETIME_A" -v time_b="$DATETIME_B" -F ';' '{if ($1 > time_a && $1 < time_b) {print $0}}')
+FILTER_INPUT=$(echo "$INPUT" | awk -v aft="$DATETIME_A" -v bfr="$DATETIME_B" -F ';' '{if ($1 > aft && $1 < bfr) {print $0}}')
 if [ "$TICKER" != "" ];then
   FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" 'BEGIN = split(tck, tick)}
   {for(i=1; i<=x;i++) if(tick[i] == $2) {print $0}}')
@@ -99,8 +97,10 @@ case "$COMMAND" in
   OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
     ;;
   profit)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){b += $4 * $6}if($3 == "sell"){s += $4 * $6}} END {s -= b; printf("%.2f",s)}')
     ;;
   pos)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; ;lastprice[$2]=$4}}END{ for (tick in ticks){ticks[tick]=$ticks[tick]*lastprice[tick];printf("%s %.1f\n",tick,ticks[tick])} }' )
     ;;
   last-price)
     ;;
