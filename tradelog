@@ -63,7 +63,7 @@ do
     shift
     ;;
   -t)
-    TICKER="$2|$TICKER"
+    TICKER="$2;$TICKER"
     shift
     shift
     ;;
@@ -89,7 +89,7 @@ else
 fi
 FILTER_INPUT=$(echo "$INPUT" | awk -v aft="$DATETIME_A" -v bfr="$DATETIME_B" -F ';' '{if ($1 > aft && $1 < bfr) {print $0}}')
 if [ "$TICKER" != "" ];then
-  FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" 'BEGIN = split(tck, tick)}
+  FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" -F ';' 'BEGIN ={x = split(tck, tick)}
   {for(i=1; i<=x;i++) if(tick[i] == $2) {print $0}}')
 fi
 case "$COMMAND" in
@@ -97,17 +97,18 @@ case "$COMMAND" in
   OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
     ;;
   profit)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){b += $4 * $6}if($3 == "sell"){s += $4 * $6}} END {s -= b; printf("%.2f",s)}')
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){num -= $4 * $6}if($3 == "sell"){num += $4 * $6}} END {printf("%.2f",num)}')
     ;;
   pos)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){ticks[tick]=sprintf("%.2f",ticks[tick]*lastprice[tick]); printf("%9-s : %s\n",tick,num)} }' | sort)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){num=sprintf("%.2f",ticks[tick]*lastprice[tick]); printf("%9-s : %s\n",tick,num)} }' | sort -r -t':' -nk2)
     ;;
   last-price)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($1 > lastdate[$2]){lastdate[$2] = $1; lastprices[$2]=$4}}END{ for (lastprice in lastprices){printf("%9-s : %s\n",lastprice,lastprice[$2])} }' | sort)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($1 > lastdate[$2]){lastdate[$2] = $1; lastprices[$2]=$4}}END{ for (lastprice in lastprices){printf("%9-s : %s\n",lastprice,lastprices[lastprice])} }' | sort)
     ;;
   hist-ord)
     ;;
   graph-pos)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){ticks[tick]=sprintf("%.2f",ticks[tick]*lastprice[tick]); printf("%9-s : %s\n",tick,num)} }' | sort)
     ;;
   *)
   OUTPUT="$FILTER_INPUT"
