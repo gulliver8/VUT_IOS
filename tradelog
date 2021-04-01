@@ -30,6 +30,7 @@ LOGFILES_GZ=""
 INPUT=""
 FILTER_INPUT=""
 OUTPUT=""
+TICKER_LIST=""
 
 while [ "$#" -gt 0 ]
 do
@@ -99,7 +100,7 @@ case "$COMMAND" in
   OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){b += $4 * $6}if($3 == "sell"){s += $4 * $6}} END {s -= b; printf("%.2f",s)}')
     ;;
   pos)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; ;lastprice[$2]=$4}}END{ for (tick in ticks){printf("%s %.1f\n",tick,ticks[tick]*lastprice[tick])} }' )
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; ;lastprice[$2]=$4}}END{ for (tick in ticks){ticks[tick]=$ticks[tick]*lastprice[tick];printf("%s %.1f\n",tick,ticks[tick])} }' )
     ;;
   last-price)
     ;;
