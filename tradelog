@@ -44,12 +44,12 @@ do
     shift
     ;;
   -w)
-    if [ "$WIDTH" == "" ];then
+    if [ "$WIDTH" != "" ];then
+      exit 1
+    else
       WIDTH="$2"
       shift
       shift
-    else
-      exit 1
     fi
     ;;
   -a)
@@ -75,6 +75,9 @@ do
     LOGFILES="$1 $LOGFILES"
     shift
     ;;
+  *)
+    exit 1
+    ;;
   esac
 done
 
@@ -89,7 +92,7 @@ else
 fi
 FILTER_INPUT=$(echo "$INPUT" | awk -v aft="$DATETIME_A" -v bfr="$DATETIME_B" -F ';' '{if ($1 > aft && $1 < bfr) {print $0}}')
 if [ "$TICKER" != "" ];then
-  FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" -F ';' 'BEGIN ={x = split(tck, tick)}
+  FILTER_INPUT=$(echo "$FILTER_INPUT" | awk -v tck="$TICKER" -F ';' 'BEGIN {x = split(tck, tick)}
   {for(i=1; i<=x;i++) if(tick[i] == $2) {print $0}}')
 fi
 case "$COMMAND" in
@@ -106,9 +109,10 @@ case "$COMMAND" in
   OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($1 > lastdate[$2]){lastdate[$2] = $1; lastprices[$2]=$4}}END{ for (lastprice in lastprices){printf("%9-s : %s\n",lastprice,lastprices[lastprice])} }' | sort)
     ;;
   hist-ord)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" '{ticks[$2]+=1; if(ticks[$2]>maxcount){maxcount=ticks[$2]}}END{x=1;if(wd != ""){x=maxcount/wd}for(tick in ticks){printf("%9-s :",tick);for(i=x;i<=ticks[tick];i+=x){printf("#")}printf("\n");}}' | sort)
     ;;
   graph-pos)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){ticks[tick]=sprintf("%.2f",ticks[tick]*lastprice[tick]); printf("%9-s : %s\n",tick,num)} }' | sort)
+  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" 'function abs(x){return((x<0.0) ? -x : x)}{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){price[tick]=ticks[tick]*lastprice[tick]; if(int(abs(price[tick])) > maxprice){maxprice=int(abs(price[tick]))} x=1000; if(wd != ""){x=maxprice/wd}for(tick in ticks){printf("%9-s :",tick);if(price[tick]<0){for(i=-x;i>=price[tick];i-=x){printf("!")}}if(price[tick]>0){for(i=x;i<=price[tick];i+=x){printf("#")}}printf("\n");}}' | sort)
     ;;
   *)
   OUTPUT="$FILTER_INPUT"
