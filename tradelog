@@ -1,9 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 export POSIXLY_CORRECT=yes
 export LC_NUMERIC=en_US.UTF-8
 
 print_help(){
+  echo "Script analyzes records of the stock trading system. It filters s and provides statistics according to user input. Records can be input as .log files or as multiple .log files compressed with gzip. If the script does not receive log files, it expects logs on standard input."
+  echo "				"
   echo "Usage:    tradelog [-h|--help]"
   echo "          tradelog [FILTER] [COMMAND] [LOG [LOG2 [...]]"
   echo "                   "
@@ -13,11 +15,33 @@ print_help(){
   echo "          last-price"
   echo "          hist-ord"
   echo "          graph-pos"
-  echo "                     "
-  echo "Filters:  -a DATETIME"
-  echo "          -b DATETIME"
+  echo "                   "
+  echo "Filters:  -a DATETIME	Format:	[YYYY-MM-DD HH:MM:SS]"
+  echo "          -b DATETIME		[YYYY-MM-DD HH:MM:SS]"
   echo "          -t TICKER"
-  echo "          -w WIDTH"
+  echo "          -w WIDTH		[natural number]"
+}
+
+check_date(){
+  if [ "$2" != "[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]" ];then
+    echo "ERROR: Invalid date and time format (YYYY-MM-DD HH:MM:SS)"
+    exit 1
+  fi
+  if [ "$3" != "[0-2][0-9]:[0-5][0-9]:[0-9][0-9]" ];then
+    echo "ERROR: Invalid date and time format (YYYY-MM-DD HH:MM:SS)"
+    exit 1
+  fi
+}
+
+check_width(){
+  if [ "$WIDTH" != "" ];then
+    echo "ERROR: Multiple width commands not supported."
+    exit 1
+  fi
+  if ! [[ $2 =~ ^[0-9][0-9]*$ ]];then
+    echo "ERROR: Width value must be a natural number"
+    exit 1
+  fi
 }
 
 COMMAND=""
@@ -32,6 +56,7 @@ FILTER_INPUT=""
 OUTPUT=""
 TICKER_LIST=""
 
+#command processing
 while [ "$#" -gt 0 ]
 do
   case "$1" in
@@ -44,21 +69,22 @@ do
     shift
     ;;
   -w)
-    if [ "$WIDTH" != "" ];then
-      exit 1
-    else
-      WIDTH="$2"
-      shift
-      shift
-    fi
+    check_width on $2
+    WIDTH="$2"
+    shift
+    shift
     ;;
   -a)
-    DATETIME_A="$2"
+    DATETIME_A="$2 $3"
+    check_date
+    shift
     shift
     shift
     ;;
   -b)
-    DATETIME_B="$2"
+    DATETIME_B="$2 $3"
+    check_date
+    shift
     shift
     shift
     ;;
@@ -76,6 +102,7 @@ do
     shift
     ;;
   *)
+    echo "ERROR: Invalid input"
     exit 1
     ;;
   esac
@@ -97,22 +124,122 @@ if [ "$TICKER" != "" ];then
 fi
 case "$COMMAND" in
   list-tick)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{print $2}' | sort -u)
     ;;
   profit)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){num -= $4 * $6}if($3 == "sell"){num += $4 * $6}} END {printf("%.2f",num)}')
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' \
+           '{
+             if($3 == "buy")
+	       {num -= $4 * $6}
+	     if($3 == "sell")
+	       {num += $4 * $6}
+           }END{
+             printf("%.2f",num)
+           }')
     ;;
   pos)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){num=sprintf("%.2f",ticks[tick]*lastprice[tick]); printf("%9-s : %s\n",tick,num)} }' | sort -r -t':' -nk2)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' \
+	   '{
+ 	   #array ticks stores value for each ticker
+	     if($3 == "buy"){ticks[$2] += $6}
+	     if($3 == "sell"){ticks[$2] -= $6}
+           #array last price keeps latest price for each ticker
+	     if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}
+           }END{
+	   #calculate value of currently held positions and find max value 
+	     for(tick in ticks){num[tick]=sprintf("%.2f",ticks[tick]*lastprice[tick]); if(length(num[tick])>maxnum){maxnum=length(num[tick])}}
+           #print results 
+	     for(tick in ticks){printf("%-9s : %*s\n",tick,maxnum,num[tick])} 
+	   }' | sort -r -t':' -nk2)
+
     ;;
   last-price)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' '{if($1 > lastdate[$2]){lastdate[$2] = $1; lastprices[$2]=$4}}END{ for (lastprice in lastprices){printf("%9-s : %s\n",lastprice,lastprices[lastprice])} }' | sort)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' \
+	   '{
+           #find last price of each ticker
+	     if($1 > lastdate[$2])
+	       {
+	         lastdate[$2] = $1
+		 lastprices[$2]=$4
+	       }
+           }END{
+	   #find max price to indent numbers by
+	     for(lastprice in lastprices)
+	     {
+	       if(length(lastprices[lastprice])>maxprice)
+	         {maxprice=length(lastprices[lastprice])}
+	     }
+           #print results
+             for(lastprice in lastprices)
+	     {
+	       printf("%-9s : %*s\n",lastprice,maxprice,lastprices[lastprice])
+             }
+             }' | sort)
     ;;
   hist-ord)
-    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" '{ticks[$2]+=1; if(ticks[$2]>maxcount){maxcount=ticks[$2]}}END{x=1;if(wd != ""){x=maxcount/wd}for(tick in ticks){printf("%9-s :",tick);for(i=x;i<=ticks[tick];i+=x){printf("#")}printf("\n");}}' | sort)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" \
+	   '{
+           #count number of transactions for each ticker and find maximal
+	     ticks[$2]+=1
+	     if(ticks[$2]>maxcount)
+	       {maxcount=ticks[$2]}
+           }END{
+	   #set default or input value to represent one unit in graph
+	     x=1
+	     if(wd != "")
+	       {x=maxcount/wd}
+	   #print results
+	     for(tick in ticks)
+	       {
+		 printf("%-9s : ",tick);
+		 for(i=x;i<=ticks[tick];i+=x)
+	           {printf("#")
+	       }
+             printf("\n")
+            }
+           }' | sort)
     ;;
   graph-pos)
-  OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" 'function abs(x){return((x<0.0) ? -x : x)}{if($3 == "buy"){ticks[$2] += $6}if($3 == "sell"){ticks[$2] -= $6}if($1 > lastdate[$2]){lastdate[$2] = $1; lastprice[$2]=$4}}END{ for (tick in ticks){price[tick]=ticks[tick]*lastprice[tick]; if(int(abs(price[tick])) > maxprice){maxprice=int(abs(price[tick]))} x=1000; if(wd != ""){x=maxprice/wd}for(tick in ticks){printf("%9-s :",tick);if(price[tick]<0){for(i=-x;i>=price[tick];i-=x){printf("!")}}if(price[tick]>0){for(i=x;i<=price[tick];i+=x){printf("#")}}printf("\n");}}' | sort)
+    OUTPUT=$(echo "$FILTER_INPUT" | awk -F ';' -v wd="$WIDTH" \
+	   'function abs(x){return((x<0.0) ? -x : x)}
+	   {
+           #store value for each ticker in array ticks
+             if($3 == "buy")
+	       {ticks[$2] += $6}
+	     if($3 == "sell")
+	       {ticks[$2] -= $6}
+	   #find last price for each ticker
+	     if($1 > lastdate[$2])
+	       {lastdate[$2] = $1; lastprice[$2]=$4}
+           }END{
+	   #values of currently held positions and find max absolute value
+	     for(tick in ticks)
+	       {
+		 price[tick]=ticks[tick]*lastprice[tick]
+		 if(int(abs(price[tick])) > maxprice)
+	           {maxprice=int(abs(price[tick]))}
+	       } 
+           #set default or input value to represent one unit in graph
+             x=1000
+	     if(wd != "")
+	       {x=maxprice/wd}
+	   #print results differentiating between positive and negative values
+	     for(tick in ticks)
+	       {
+		 printf("%-9s : ",tick)
+		 if(price[tick]<0)
+	           {
+	             for(i=-x;i>=price[tick];i-=x)
+		       {printf("!")}
+	           }
+		 if(price[tick]>0)
+	           {
+	             for(i=x;i<=price[tick];i+=x)
+		       {printf("#")}
+	           }
+	         printf("\n")
+	       }
+             }' | sort)
     ;;
   *)
   OUTPUT="$FILTER_INPUT"
