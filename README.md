@@ -31,19 +31,20 @@ Logs are in CSV format where ; is a separator. Every line represents one transac
 `-w WIDTH` **Format:** `[natural number]`
 
 ## Examples
-``$ ./tradelog -t TSLA -t GOOG stock.log
+```
+$ ./tradelog -t TSLA -t GOOG stock.log
 2021-07-29 11:30:42;TSLA;buy;680.00;USD;50;78dac354-7943-11eb-929d-8c85906a18fd
 2021-07-29 14:45:33;GOOG;sell;2725.80;USD;20;89acbd43-7943-11eb-929d-8c85906a19aa
 2021-07-30 09:00:25;TSLA;sell;690.50;USD;50;90cad123-7943-11eb-929d-8c85906a1a5b
 2021-07-31 08:45:10;TSLA;buy;700.00;USD;25;ccfdea23-7943-11eb-929d-8c85906a1e5a
 2021-07-31 12:10:20;GOOG;buy;2740.15;USD;10;ddbad234-7943-11eb-929d-8c85906a1f6b
-``
-
-``$ ./tradelog list-tick stock-2.log
+```
+```
+$ ./tradelog list-tick stock-2.log
 AAPL
 TSLA
 GOOG
 MSFT
 AMZN
 NFLX
-``
+```
